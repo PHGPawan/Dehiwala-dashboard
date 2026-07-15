@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dehiwala Junction — Urban Analysis Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#10161d;
+    --ink-2:#1a2430;
+    --paper:#eee9df;
+    --paper-dim:#c9c2b1;
+    --amber:#e2a53d;
+    --amber-dim:#a97b2c;
+    --teal2:#5b9c96;
+    --line: rgba(238,233,223,0.14);
+    --line-strong: rgba(238,233,223,0.28);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--amber); color:var(--ink);}
+
+  h1,h2,h3{font-family:'Fraunces',serif; margin:0; letter-spacing:-0.01em;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--amber);
+    display:flex; align-items:center; gap:8px;
+  }
+  .eyebrow::before{content:''; width:16px; height:1px; background:var(--amber);}
+
+  /* ---- Corner ticks signature motif ---- */
+  .tick-frame{position:relative;}
+  .tick-frame::before,.tick-frame::after,
+  .tick-frame b::before,.tick-frame b::after{
+    content:''; position:absolute; width:14px; height:14px; opacity:0.55;
+    border-color: var(--amber); border-style:solid; border-width:0;
+  }
+  .tick-frame::before{top:0;left:0;border-top-width:1.5px;border-left-width:1.5px;}
+  .tick-frame::after{top:0;right:0;border-top-width:1.5px;border-right-width:1.5px;}
+  .tick-frame b::before{bottom:0;left:0;border-bottom-width:1.5px;border-left-width:1.5px;}
+  .tick-frame b::after{bottom:0;right:0;border-bottom-width:1.5px;border-right-width:1.5px;}
+
+  /* ---- Top nav ---- */
+  header.nav{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 32px;
+    background:rgba(16,22,29,0.86);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .coord{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--paper-dim); line-height:1.3;}
+  .brand-mark{
+    width:30px;height:30px; border:1px solid var(--amber); border-radius:2px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--amber);
+    transform:rotate(45deg);
+  }
+  .brand-mark span{transform:rotate(-45deg);}
+  nav.links{display:flex; gap:26px;}
+  nav.links a{
+    color:var(--paper-dim); text-decoration:none; font-size:13px; font-weight:500;
+    letter-spacing:0.02em; transition:color .15s ease;
+  }
+  nav.links a:hover{color:var(--amber);}
+  @media(max-width:920px){ nav.links{display:none;} }
+
+  /* ---- Hero ---- */
+  .hero{
+    position:relative; padding:120px 32px 90px; max-width:1180px; margin:0 auto;
+    border-bottom:1px solid var(--line);
+  }
+  .hero-grid{display:grid; grid-template-columns:1.3fr 1fr; gap:56px; align-items:end;}
+  @media(max-width:900px){.hero-grid{grid-template-columns:1fr;}}
+  .hero h1{
+    font-size:clamp(40px,6vw,74px); line-height:0.98; font-weight:600; color:var(--paper);
+    margin:18px 0 22px;
+  }
+  .hero h1 em{font-style:italic; color:var(--amber); font-weight:400;}
+  .hero p.lede{font-size:16px; line-height:1.65; color:var(--paper-dim); max-width:52ch;}
+  .hero-meta{
+    display:grid; grid-template-columns:1fr 1fr; gap:18px 24px;
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--paper-dim);
+    border-top:1px solid var(--line-strong); padding-top:20px;
+  }
+  .hero-meta div b{display:block; color:var(--paper); font-size:14px; font-weight:500; margin-top:3px;}
+
+  section{max-width:1180px; margin:0 auto; padding:80px 32px; border-bottom:1px solid var(--line);}
+  section:last-of-type{border-bottom:none;}
+  .section-head{display:flex; justify-content:space-between; align-items:flex-end; gap:24px; margin-bottom:40px; flex-wrap:wrap;}
+  .section-head h2{font-size:clamp(28px,4vw,40px); font-weight:600;}
+  .section-head p{color:var(--paper-dim); font-size:14.5px; max-width:46ch; line-height:1.6;}
+
+  /* ---- Map gallery ---- */
+  .gallery{display:grid; grid-template-columns:repeat(3,1fr); gap:20px;}
+  @media(max-width:900px){.gallery{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:620px){.gallery{grid-template-columns:1fr;}}
+  .card{
+    background:var(--ink-2); border:1px solid var(--line); border-radius:6px; overflow:hidden;
+    display:flex; flex-direction:column; cursor:pointer;
+    transition:transform .2s ease, border-color .2s ease;
+  }
+  .card:hover{transform:translateY(-4px); border-color:var(--amber-dim);}
+  .card .thumb{aspect-ratio:4/3; overflow:hidden; background:#000;}
+  .card .thumb img{width:100%; height:100%; object-fit:cover; display:block; transition:transform .35s ease;}
+  .card:hover .thumb img{transform:scale(1.06);}
+  .card .cap{padding:14px 16px 16px;}
+  .card .cap .tag{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--amber); text-transform:uppercase; letter-spacing:0.08em;}
+  .card .cap h3{font-size:16px; font-weight:600; margin-top:6px; color:var(--paper); font-family:'Inter',sans-serif;}
+  .card .cap p{font-size:12.5px; color:var(--paper-dim); margin-top:5px; line-height:1.5;}
+
+  /* wide single-image card */
+  .card.wide{grid-column:span 2;}
+  @media(max-width:900px){.card.wide{grid-column:span 2;}}
+  @media(max-width:620px){.card.wide{grid-column:span 1;}}
+  .card.wide .thumb{aspect-ratio:16/8;}
+
+  /* ---- Findings list ---- */
+  .findings{display:grid; grid-template-columns:repeat(2,1fr); gap:14px 40px;}
+  @media(max-width:760px){.findings{grid-template-columns:1fr;}}
+  .finding{display:flex; gap:14px; padding:16px 0; border-bottom:1px solid var(--line);}
+  .finding .num{font-family:'JetBrains Mono',monospace; color:var(--amber); font-size:13px; padding-top:2px;}
+  .finding p{margin:0; font-size:14px; line-height:1.6; color:var(--paper-dim);}
+  .finding strong{color:var(--paper); font-weight:600;}
+
+  /* ---- Stats / population ---- */
+  .stat-row{display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:36px;}
+  @media(max-width:800px){.stat-row{grid-template-columns:repeat(2,1fr);}}
+  .stat{
+    border:1px solid var(--line); border-radius:6px; padding:20px; background:var(--ink-2);
+  }
+  .stat .val{font-family:'Fraunces',serif; font-size:32px; color:var(--amber); font-weight:600;}
+  .stat .lbl{font-family:'JetBrains Mono',monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--paper-dim); margin-top:6px;}
+
+  .chart-wrap{
+    border:1px solid var(--line); border-radius:6px; background:var(--ink-2);
+    padding:28px 28px 12px;
+  }
+
+  /* ---- Live data ---- */
+  .live-panel{
+    display:grid; grid-template-columns:1.1fr 1fr; gap:28px; align-items:stretch;
+  }
+  @media(max-width:860px){.live-panel{grid-template-columns:1fr;}}
+  .live-card{
+    border:1px solid var(--line); border-radius:6px; background:var(--ink-2); padding:28px;
+    position:relative;
+  }
+  .live-dot{width:8px;height:8px;border-radius:50%; background:#6fcf97; display:inline-block; margin-right:6px;
+    animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(111,207,151,.5);}70%{box-shadow:0 0 0 8px rgba(111,207,151,0);}100%{box-shadow:0 0 0 0 rgba(111,207,151,0);}}
+  .live-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:18px; margin-top:22px;}
+  .live-metric .v{font-family:'Fraunces',serif; font-size:30px; color:var(--paper); font-weight:600;}
+  .live-metric .l{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--paper-dim); text-transform:uppercase; letter-spacing:.05em; margin-top:4px;}
+  .aqi-badge{
+    display:inline-block; padding:4px 10px; border-radius:20px; font-family:'JetBrains Mono',monospace;
+    font-size:11px; margin-top:6px;
+  }
+
+  /* ---- Footer ---- */
+  footer{
+    padding:50px 32px; max-width:1180px; margin:0 auto;
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;
+  }
+  footer p{font-size:12px; color:var(--paper-dim); font-family:'JetBrains Mono',monospace;}
+
+  /* ---- Lightbox ---- */
+  .lightbox{
+    position:fixed; inset:0; background:rgba(10,13,17,0.92); z-index:200;
+    display:none; align-items:center; justify-content:center; padding:40px;
+    backdrop-filter:blur(4px);
+  }
+  .lightbox.active{display:flex;}
+  .lightbox img{max-width:92vw; max-height:86vh; border-radius:4px; border:1px solid var(--line-strong);}
+  .lightbox .close{position:absolute; top:24px; right:32px; color:var(--paper); font-size:26px; cursor:pointer; font-family:'JetBrains Mono',monospace;}
+  .lightbox .lb-cap{position:absolute; bottom:28px; left:50%; transform:translateX(-50%); font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--paper-dim);}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="brand">
+    <div class="brand-mark"><span>DJ</span></div>
+    <div class="coord">6.85°N 79.87°E<br>DEHIWALA JUNCTION</div>
+  </div>
+  <nav class="links">
+    <a href="#context">Context</a>
+    <a href="#syntax">Space Syntax</a>
+    <a href="#form">Urban Form</a>
+    <a href="#environment">Environment</a>
+    <a href="#population">Population</a>
+    <a href="#live">Live Data</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="eyebrow">PL2306 · Spatial Data Analytics &amp; Visualization</div>
+  <div class="hero-grid">
+    <div>
+      <h1>Reading the city<br><em>block by block.</em></h1>
+      <p class="lede">A contextual analysis dashboard for the Dehiwala Junction study area — bringing together space syntax, urban form indices, environmental comfort, and demographic data into one instrument for reading the city.</p>
+    </div>
+    <div class="hero-meta">
+      <div>Study Area <b>Dehiwala Junction, Colombo</b></div>
+      <div>Module <b>PL2306 — Assignment 01</b></div>
+      <div>Methods <b>sDNA · Space Matrix · Entropy · UMI</b></div>
+      <div>Coordinate System <b>EPSG:5235</b></div>
+    </div>
+  </div>
+</section>
+
+<section id="context">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">01 — Reading the Site</div>
+      <h2>Problems, potentials &amp; behaviour</h2>
+    </div>
+    <p>Dehiwala Junction sits at the convergence of the Galle Road corridor and the rail line — a dense, mixed-use node under continuous pedestrian and vehicular pressure.</p>
+  </div>
+
+  <div class="findings">
+    <div class="finding"><div class="num">P1</div><p><strong>Congestion at the junction core.</strong> High betweenness values concentrate along Galle Road and the station approach, meaning through-traffic and local access compete for the same narrow carriageway.</p></div>
+    <div class="finding"><div class="num">P2</div><p><strong>Fragmented open space.</strong> The Open Space Ratio (OSR) map shows very low ground-level open space in the commercial core, clustering what little exists near the periphery.</p></div>
+    <div class="finding"><div class="num">P3</div><p><strong>Thermally stressed core.</strong> UTCI and surface heat readings peak over the paved commercial strip, where FSI is highest and tree canopy is thinnest.</p></div>
+    <div class="finding"><div class="num">P4</div><p><strong>Uneven urban maturity.</strong> The Urban Maturation Index highlights a mature, high-intensity core against a rapidly transitioning residential edge to the east.</p></div>
+    <div class="finding"><div class="num">K1</div><p><strong>Potential —</strong> strong local closeness at the 500m scale suggests the junction already works well as a walkable neighbourhood centre, if reclaimed from vehicle dominance.</p></div>
+    <div class="finding"><div class="num">K2</div><p><strong>Potential —</strong> mixed land-use entropy is comparatively high near the station, a foundation for transit-oriented intensification.</p></div>
+  </div>
+</section>
+
+<section id="syntax">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">02 — Space Syntax / sDNA</div>
+      <h2>Centrality across three scales</h2>
+    </div>
+    <p>Betweenness and closeness centrality computed at 500m, 2000m and 5000m radii, revealing how movement potential shifts from the immediate neighbourhood to the regional network.</p>
+  </div>
+  <div class="gallery" id="gallery-syntax"></div>
+</section>
+
+<section id="form">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">03 — Urban Form &amp; Space Matrix</div>
+      <h2>Density, intensity &amp; maturation</h2>
+    </div>
+    <p>FSI, GSI, OSR and land-use entropy, each min–max normalised, combined into a single Urban Maturation Index (UMI) across the grid.</p>
+  </div>
+  <div class="gallery" id="gallery-form"></div>
+</section>
+
+<section id="environment">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">04 — Environmental Comfort</div>
+      <h2>Heat, wind &amp; thermal stress</h2>
+    </div>
+    <p>Surface heat and Universal Thermal Climate Index (UTCI) readings expose where the built form is producing thermal discomfort at street level.</p>
+  </div>
+  <div class="gallery" id="gallery-env"></div>
+</section>
+
+<section id="population">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">05 — Demographics</div>
+      <h2>Population by GN Division</h2>
+    </div>
+    <p>Ten Grama Niladhari divisions make up the wider study area, with Mount Lavinia and Dehiwala West carrying the greatest population load.</p>
+  </div>
+
+  <div class="stat-row" id="pop-stats"></div>
+
+  <div class="chart-wrap">
+    <canvas id="popChart" height="110"></canvas>
+  </div>
+</section>
+
+<section id="live">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">06 — Real-Time Data</div>
+      <h2>Live conditions on site</h2>
+    </div>
+    <p>Pulled directly from the Open-Meteo API for Dehiwala's coordinates — refreshes automatically on load.</p>
+  </div>
+
+  <div class="live-panel">
+    <div class="live-card tick-frame"><b></b>
+      <div class="eyebrow" style="margin-bottom:4px;"><span class="live-dot"></span>LIVE WEATHER</div>
+      <div id="weatherHeadline" class="mono" style="font-size:13px;color:var(--paper-dim);">Fetching current conditions…</div>
+      <div class="live-grid">
+        <div class="live-metric"><div class="v" id="wTemp">—</div><div class="l">Air Temp (°C)</div></div>
+        <div class="live-metric"><div class="v" id="wFeels">—</div><div class="l">Feels Like (°C)</div></div>
+        <div class="live-metric"><div class="v" id="wWind">—</div><div class="l">Wind (km/h)</div></div>
+        <div class="live-metric"><div class="v" id="wHumidity">—</div><div class="l">Humidity (%)</div></div>
+      </div>
+    </div>
+
+    <div class="live-card tick-frame"><b></b>
+      <div class="eyebrow" style="margin-bottom:4px;"><span class="live-dot"></span>LIVE AIR QUALITY</div>
+      <div id="aqiHeadline" class="mono" style="font-size:13px;color:var(--paper-dim);">Fetching air quality index…</div>
+      <div class="live-grid">
+        <div class="live-metric"><div class="v" id="aqiVal">—</div><div class="l">European AQI</div></div>
+        <div class="live-metric"><div class="v" id="pm25">—</div><div class="l">PM2.5 (µg/m³)</div></div>
+      </div>
+      <div id="aqiBadgeWrap"></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>DEHIWALA JUNCTION DASHBOARD — PL2306 ASSIGNMENT 01 — UNIVERSITY OF MORATUWA</p>
+  <p>DATA: sDNA · SPACE MATRIX · InVEST · OPEN-METEO API</p>
+</footer>
+
+<div class="lightbox" id="lightbox">
+  <div class="close" id="lbClose">&times; CLOSE</div>
+  <img id="lbImg" src="" alt="">
+  <div class="lb-cap" id="lbCap"></div>
+</div>
+
+<script>
+/* ---------------- Gallery data ---------------- */
+const syntaxMaps = [
+  {src:'images/betweenness_500.jpg', tag:'sDNA · Betweenness', title:'Betweenness — 500m', desc:'Local movement potential; the junction core dominates at pedestrian scale.'},
+  {src:'images/betweenness_2000.jpg', tag:'sDNA · Betweenness', title:'Betweenness — 2000m', desc:'Neighbourhood-scale through-movement along Galle Road.'},
+  {src:'images/betweenness_5000.jpg', tag:'sDNA · Betweenness', title:'Betweenness — 5000m', desc:'Regional through-traffic corridors linking Colombo to the south coast.'},
+  {src:'images/closeness_500.jpg', tag:'sDNA · Closeness', title:'Closeness — 500m', desc:'Highly accessible local streets around the station.'},
+  {src:'images/closeness_2000.jpg', tag:'sDNA · Closeness', title:'Closeness — 2000m', desc:'Accessibility drops off toward the residential fringe.'},
+  {src:'images/closeness_5000.jpg', tag:'sDNA · Closeness', title:'Closeness — 5000m', desc:'City-wide reach from the junction as a regional hub.'},
+];
+const formMaps = [
+  {src:'images/fsi.png', tag:'Space Matrix', title:'Floor Space Index (FSI)', desc:'Built floor area intensity relative to plot area.'},
+  {src:'images/gsi.png', tag:'Space Matrix', title:'Ground Space Index (GSI)', desc:'Building footprint coverage across the grid.'},
+  {src:'images/osr.png', tag:'Space Matrix', title:'Open Space Ratio (OSR)', desc:'Available open space per unit of built floor area.'},
+  {src:'images/entropy.png', tag:'Land Use', title:'Landuse Entropy Index', desc:'Shannon entropy of land-use mix — higher values indicate greater diversity.'},
+  {src:'images/umi.png', tag:'Composite Index', title:'Urban Maturation Index', desc:'Equal-weighted composite of centrality, FSI, GSI, OSR and entropy.', wide:true},
+  {src:'images/landuse.jpg', tag:'Base Data', title:'Dehiwala Land Use', desc:'Existing land-use classification for the study area.', wide:true},
+];
+const envMaps = [
+  {src:'images/heatmap.jpg', tag:'Thermal', title:'Urban Heat Map', desc:'Surface temperature distribution across the study area.'},
+  {src:'images/utci.png', tag:'Thermal Comfort', title:'UTCI Analysis', desc:'Universal Thermal Climate Index — outdoor thermal stress mapping.', wide:true},
+];
+
+function renderGallery(containerId, items){
+  const el = document.getElementById(containerId);
+  el.innerHTML = items.map(it => `
+    <div class="card${it.wide?' wide':''}" data-src="${it.src}" data-title="${it.title}" data-desc="${it.desc}">
+      <div class="thumb"><img src="${it.src}" alt="${it.title}" loading="lazy"></div>
+      <div class="cap">
+        <div class="tag">${it.tag}</div>
+        <h3>${it.title}</h3>
+        <p>${it.desc}</p>
+      </div>
+    </div>
+  `).join('');
+}
+renderGallery('gallery-syntax', syntaxMaps);
+renderGallery('gallery-form', formMaps);
+renderGallery('gallery-env', envMaps);
+
+/* ---------------- Lightbox ---------------- */
+const lightbox = document.getElementById('lightbox');
+const lbImg = document.getElementById('lbImg');
+const lbCap = document.getElementById('lbCap');
+document.addEventListener('click', e=>{
+  const card = e.target.closest('.card');
+  if(card){
+    lbImg.src = card.dataset.src;
+    lbCap.textContent = card.dataset.title + ' — ' + card.dataset.desc;
+    lightbox.classList.add('active');
+  }
+  if(e.target.id==='lightbox' || e.target.id==='lbClose'){
+    lightbox.classList.remove('active');
+  }
+});
+
+/* ---------------- Population ---------------- */
+const popData = [
+  {gn:'Dehiwala East', pop:6492},
+  {gn:'Malwatta', pop:5508},
+  {gn:'Hathbodhiya', pop:6000},
+  {gn:'Dehiwala West', pop:7788},
+  {gn:'Udyanaya', pop:5584},
+  {gn:'Kohuwala', pop:6333},
+  {gn:'Jayathilaka', pop:5215},
+  {gn:'Kawdana West', pop:6643},
+  {gn:'Mount Lavinia', pop:8086},
+  {gn:'Galwala', pop:6001},
+  {gn:'Karagampitiya', pop:5376},
+];
+const totalPop = popData.reduce((a,b)=>a+b.pop,0);
+const maxGN = popData.reduce((a,b)=> b.pop>a.pop?b:a);
+const minGN = popData.reduce((a,b)=> b.pop<a.pop?b:a);
+document.getElementById('pop-stats').innerHTML = `
+  <div class="stat"><div class="val">${totalPop.toLocaleString()}</div><div class="lbl">Total Population</div></div>
+  <div class="stat"><div class="val">${popData.length}</div><div class="lbl">GN Divisions</div></div>
+  <div class="stat"><div class="val">${maxGN.pop.toLocaleString()}</div><div class="lbl">Highest — ${maxGN.gn}</div></div>
+  <div class="stat"><div class="val">${minGN.pop.toLocaleString()}</div><div class="lbl">Lowest — ${minGN.gn}</div></div>
+`;
+
+new Chart(document.getElementById('popChart'), {
+  type:'bar',
+  data:{
+    labels: popData.map(d=>d.gn),
+    datasets:[{
+      label:'Population',
+      data: popData.map(d=>d.pop),
+      backgroundColor:'#e2a53d',
+      borderRadius:3,
+      maxBarThickness:42
+    }]
+  },
+  options:{
+    responsive:true,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{ticks:{color:'#c9c2b1', font:{family:'JetBrains Mono', size:10}}, grid:{color:'rgba(238,233,223,0.06)'}},
+      y:{ticks:{color:'#c9c2b1', font:{family:'JetBrains Mono', size:10}}, grid:{color:'rgba(238,233,223,0.06)'}}
+    }
+  }
+});
+
+/* ---------------- Live weather + air quality (Open-Meteo, no key) ---------------- */
+const LAT = 6.8500, LON = 79.8654;
+
+fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code&timezone=auto`)
+  .then(r=>r.json())
+  .then(d=>{
+    const c = d.current;
+    document.getElementById('wTemp').textContent = c.temperature_2m.toFixed(1);
+    document.getElementById('wFeels').textContent = c.apparent_temperature.toFixed(1);
+    document.getElementById('wWind').textContent = c.wind_speed_10m.toFixed(0);
+    document.getElementById('wHumidity').textContent = c.relative_humidity_2m;
+    document.getElementById('weatherHeadline').textContent =
+      `As of ${new Date(c.time).toLocaleString()} · ${weatherLabel(c.weather_code)}`;
+  })
+  .catch(()=>{ document.getElementById('weatherHeadline').textContent = 'Live weather unavailable right now.'; });
+
+fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}&longitude=${LON}&current=european_aqi,pm2_5&timezone=auto`)
+  .then(r=>r.json())
+  .then(d=>{
+    const c = d.current;
+    document.getElementById('aqiVal').textContent = c.european_aqi;
+    document.getElementById('pm25').textContent = c.pm2_5.toFixed(1);
+    document.getElementById('aqiHeadline').textContent = `As of ${new Date(c.time).toLocaleString()}`;
+    const [label,color] = aqiLabel(c.european_aqi);
+    document.getElementById('aqiBadgeWrap').innerHTML =
+      `<span class="aqi-badge mono" style="background:${color}22;color:${color};border:1px solid ${color}55;">${label}</span>`;
+  })
+  .catch(()=>{ document.getElementById('aqiHeadline').textContent = 'Live air quality unavailable right now.'; });
+
+function weatherLabel(code){
+  const map = {0:'Clear sky',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',48:'Fog',
+    51:'Light drizzle',53:'Drizzle',55:'Dense drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',
+    80:'Rain showers',81:'Rain showers',82:'Violent showers',95:'Thunderstorm'};
+  return map[code] || 'Conditions updating';
+}
+function aqiLabel(v){
+  if(v<=20) return ['GOOD','#6fcf97'];
+  if(v<=40) return ['FAIR','#a8d16f'];
+  if(v<=60) return ['MODERATE','#e2a53d'];
+  if(v<=80) return ['POOR','#e07a3f'];
+  return ['VERY POOR','#e0503f'];
+}
+</script>
+</body>
+</html>
